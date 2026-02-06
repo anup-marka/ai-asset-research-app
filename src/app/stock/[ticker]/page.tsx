@@ -1,4 +1,5 @@
 import Notes from './Notes';
+import PriceChart from './PriceChart';
 import { fetchDailySeries, fetchGlobalQuote, fetchOverview } from '@/lib/alphaVantage';
 
 function formatMaybeNumber(n?: string) {
@@ -27,7 +28,7 @@ export default async function StockPage({ params }: { params: Promise<{ ticker: 
     await sleep(1100);
     quote = await fetchGlobalQuote(symbol);
     await sleep(1100);
-    daily = await fetchDailySeries(symbol, 60);
+    daily = await fetchDailySeries(symbol, 90);
   } catch (e: any) {
     error = e?.message ?? 'Failed to load data';
   }
@@ -61,11 +62,11 @@ export default async function StockPage({ params }: { params: Promise<{ ticker: 
       <section style={{ marginTop: 24 }}>
         <h2>Price history (Daily)</h2>
         <p style={{ color: '#666', marginTop: 4 }}>
-          Free-tier scope: daily closes (no intraday 1D). Next step is a chart UI.
+          Free-tier scope: daily closes (no intraday 1D).
         </p>
-        <pre style={{ background: '#111', color: '#eee', padding: 12, borderRadius: 8, overflowX: 'auto' }}>
-{JSON.stringify(daily ?? [], null, 2)}
-        </pre>
+        <div style={{ marginTop: 10 }}>
+          <PriceChart points={daily ?? []} />
+        </div>
       </section>
 
       <Notes ticker={symbol} />
