@@ -1,25 +1,40 @@
 # AI Asset Research App
 
-A lightweight research app to analyze publicly traded assets (stocks/ETFs) with a focus on:
+A small **Next.js** app for researching publicly traded assets (stocks/ETFs).
 
-- A single **stock page** (price history, key metrics, notes)
-- **Compare/screener** view (2–5 tickers)
-- Optional add-ons: watchlists, news, simple valuation, export
+## MVP (target: Feb 11)
 
-## Goal / Deadline
+- **Stock page**: chart placeholder + key metrics + notes
+- **Compare view**: compare 2–5 tickers by key metrics
 
-Target: **Feb 11** (MVP).
+Data is **mocked** right now. Next step is wiring a real market data provider.
 
-## MVP Scope (draft)
+## Routes
 
-- Input: ticker symbol(s)
-- Output: chart + metrics + comparison table
-- Notes: user-entered notes per ticker
+- `/` – links to examples
+- `/stock/[ticker]` – stock page (e.g. `/stock/AAPL`)
+- `/compare?tickers=AAPL,MSFT` – compare view
 
-## Tech (TBD)
+## Getting started
 
-We’ll pick the stack next (likely Next.js for fastest demo).
+```bash
+npm install
+npm run dev
+```
 
-## Development
+Open <http://localhost:3000>
 
-TBD
+## Lint / Build
+
+```bash
+npm run lint
+npm run build
+```
+
+## Environment
+
+Copy `.env.example` to `.env` and fill in keys once we pick a provider:
+
+```bash
+cp .env.example .env
+```
