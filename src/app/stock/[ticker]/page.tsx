@@ -8,6 +8,10 @@ function formatMaybeNumber(n?: string) {
   return Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(num);
 }
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 export default async function StockPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
   const symbol = ticker.toUpperCase();
@@ -17,12 +21,13 @@ export default async function StockPage({ params }: { params: Promise<{ ticker: 
   let daily: Awaited<ReturnType<typeof fetchDailySeries>> | null = null;
   let error: string | null = null;
 
+  // Alpha Vantage free tier is very rate-limited. Avoid parallel requests.
   try {
-    [overview, quote, daily] = await Promise.all([
-      fetchOverview(symbol),
-      fetchGlobalQuote(symbol),
-      fetchDailySeries(symbol, 60),
-    ]);
+    overview = await fetchOverview(symbol);
+    await sleep(1100);
+    quote = await fetchGlobalQuote(symbol);
+    await sleep(1100);
+    daily = await fetchDailySeries(symbol, 60);
   } catch (e: any) {
     error = e?.message ?? 'Failed to load data';
   }
@@ -38,7 +43,8 @@ export default async function StockPage({ params }: { params: Promise<{ ticker: 
         <div style={{ marginTop: 12, padding: 12, border: '1px solid #f3c2c2', background: '#fff5f5', borderRadius: 8 }}>
           <strong>Data error:</strong> {error}
           <div style={{ marginTop: 6, color: '#666' }}>
-            Check you have <code>ALPHAVANTAGE_API_KEY</code> in <code>.env</code>.
+            Alpha Vantage free tier is strict (roughly 1 req/sec + daily quota). If you just refreshed a few times,
+            wait a minute and reload.
           </div>
         </div>
       ) : null}
