@@ -8,52 +8,79 @@ function getKey() {
   return key;
 }
 
-export type IntradayPoint = { time: string; close: number };
+export type SeriesPoint = { date: string; close: number };
 
 /**
- * 1D intraday series (5min). Alpha Vantage has rate limits; keep calls minimal.
+ * Daily series (free endpoint). Use last N points for a simple chart.
  */
-export async function fetchIntraday1D(ticker: string): Promise<IntradayPoint[]> {
-  const symbol = ticker.toUpperCase();
+export async function fetchDailySeries(symbolRaw: string, limit = 60): Promise<SeriesPoint[]> {
+  const symbol = symbolRaw.toUpperCase();
   const url = new URL(AV_BASE);
-  url.searchParams.set('function', 'TIME_SERIES_INTRADAY');
+  url.searchParams.set('function', 'TIME_SERIES_DAILY');
   url.searchParams.set('symbol', symbol);
-  url.searchParams.set('interval', '5min');
   url.searchParams.set('outputsize', 'compact');
   url.searchParams.set('apikey', getKey());
 
-  const res = await fetch(url.toString(), {
-    // cache lightly to reduce rate limits during dev
-    next: { revalidate: 60 },
-  });
-
+  const res = await fetch(url.toString(), { next: { revalidate: 3600 } });
   if (!res.ok) throw new Error(`Alpha Vantage HTTP ${res.status}`);
   const json = await res.json();
 
   if (json?.Note) throw new Error(`Alpha Vantage rate limit: ${json.Note}`);
-  if (json?.Error) throw new Error(`Alpha Vantage error: ${json.Error}`);
+  if (json?.Information) throw new Error(`Alpha Vantage info: ${json.Information}`);
 
   const seriesKey = Object.keys(json).find((k) => k.toLowerCase().includes('time series'));
   if (!seriesKey) throw new Error('Alpha Vantage response missing time series');
 
   const series = json[seriesKey] as Record<string, Record<string, string>>;
+  const pointSchema = z.object({ '4. close': z.string() });
 
-  const pointSchema = z.object({
-    '4. close': z.string(),
-  });
-
-  const points: IntradayPoint[] = Object.entries(series)
-    .map(([time, v]) => {
+  const points: SeriesPoint[] = Object.entries(series)
+    .map(([date, v]) => {
       const parsed = pointSchema.safeParse(v);
       if (!parsed.success) return null;
       const close = Number(parsed.data['4. close']);
       if (!Number.isFinite(close)) return null;
-      return { time, close };
+      return { date, close };
     })
-    .filter((x): x is IntradayPoint => Boolean(x))
-    .sort((a, b) => a.time.localeCompare(b.time));
+    .filter((x): x is SeriesPoint => Boolean(x))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
-  return points;
+  return points.slice(-limit);
+}
+
+export type Quote = {
+  symbol: string;
+  price?: string;
+  change?: string;
+  changePercent?: string;
+  latestTradingDay?: string;
+};
+
+/**
+ * Global quote (free). Useful when intraday endpoints are premium.
+ */
+export async function fetchGlobalQuote(symbolRaw: string): Promise<Quote> {
+  const symbol = symbolRaw.toUpperCase();
+  const url = new URL(AV_BASE);
+  url.searchParams.set('function', 'GLOBAL_QUOTE');
+  url.searchParams.set('symbol', symbol);
+  url.searchParams.set('apikey', getKey());
+
+  const res = await fetch(url.toString(), { next: { revalidate: 60 } });
+  if (!res.ok) throw new Error(`Alpha Vantage HTTP ${res.status}`);
+  const json = await res.json();
+
+  if (json?.Note) throw new Error(`Alpha Vantage rate limit: ${json.Note}`);
+  if (json?.Information) throw new Error(`Alpha Vantage info: ${json.Information}`);
+
+  const q = json?.['Global Quote'] ?? {};
+  return {
+    symbol,
+    price: q?.['05. price'],
+    change: q?.['09. change'],
+    changePercent: q?.['10. change percent'],
+    latestTradingDay: q?.['07. latest trading day'],
+  };
 }
 
 export type Overview = {
@@ -65,8 +92,8 @@ export type Overview = {
   weekLow52?: string;
 };
 
-export async function fetchOverview(ticker: string): Promise<Overview> {
-  const symbol = ticker.toUpperCase();
+export async function fetchOverview(symbolRaw: string): Promise<Overview> {
+  const symbol = symbolRaw.toUpperCase();
   const url = new URL(AV_BASE);
   url.searchParams.set('function', 'OVERVIEW');
   url.searchParams.set('symbol', symbol);
